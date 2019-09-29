@@ -1,7 +1,7 @@
 package bst
 
 type Tree interface {
-	GetRoot() Node
+	Root() Node
 	Insert(...Payload)
 	Delete(...Payload)
 	Search(Payload) Payload

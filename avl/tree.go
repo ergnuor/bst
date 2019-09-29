@@ -6,16 +6,20 @@ import (
 	"github.com/ergnuor/bst"
 )
 
-type AVL struct {
-	root      *node
-	nodeCount int
+type avl struct {
+	root *node
+	cnt  int
 }
 
-func (t AVL) GetRoot() bst.Node {
+func (t *avl) Root() bst.Node {
+	if t.root == nil {
+		return nil
+	}
+
 	return t.root
 }
 
-func (t *AVL) Insert(pls ...bst.Payload) {
+func (t *avl) Insert(pls ...bst.Payload) {
 	for _, pl := range pls {
 		n, path := t.findNode(pl)
 		if *n != nil {
@@ -28,11 +32,11 @@ func (t *AVL) Insert(pls ...bst.Payload) {
 
 		t.balanceInsertion(path, xParent)
 
-		t.nodeCount++
+		t.cnt++
 	}
 }
 
-func (t *AVL) Delete(pls ...bst.Payload) {
+func (t *avl) Delete(pls ...bst.Payload) {
 	for _, pl := range pls {
 		n, path := t.findNode(pl)
 		if *n == nil {
@@ -48,11 +52,11 @@ func (t *AVL) Delete(pls ...bst.Payload) {
 
 		t.doDeleteNode(target, linkToTarget)
 
-		t.nodeCount--
+		t.cnt--
 	}
 }
 
-func (t *AVL) Search(payload bst.Payload) bst.Payload {
+func (t *avl) Search(payload bst.Payload) bst.Payload {
 	n, _ := t.findNode(payload)
 
 	if *n != nil {
@@ -63,10 +67,10 @@ func (t *AVL) Search(payload bst.Payload) bst.Payload {
 }
 
 func New() bst.Tree {
-	return &AVL{}
+	return &avl{}
 }
 
-func (t *AVL) balanceInsertion(path []*node, xParent *node) {
+func (t *avl) balanceInsertion(path []*node, xParent *node) {
 	for i := len(path) - 2; i >= 0; i-- {
 		xParent = nil
 		if i != 0 {
@@ -107,7 +111,7 @@ func (t *AVL) balanceInsertion(path []*node, xParent *node) {
 	}
 }
 
-func (t *AVL) balanceDeletion(path []*node) {
+func (t *avl) balanceDeletion(path []*node) {
 	var x, y, z, xParent *node
 
 	for i := len(path) - 2; i >= 0; i-- {
@@ -165,7 +169,7 @@ func (t *AVL) balanceDeletion(path []*node) {
 	}
 }
 
-func (t *AVL) pickInOrderSuccessor(n **node, path []*node) (**node, []*node) {
+func (t *avl) pickInOrderSuccessor(n **node, path []*node) (**node, []*node) {
 	if (*n).left == nil || (*n).right == nil {
 		return n, path
 	}
@@ -183,7 +187,7 @@ func (t *AVL) pickInOrderSuccessor(n **node, path []*node) (**node, []*node) {
 	return n, path
 }
 
-func (t *AVL) getLinkToRemovableNode(path []*node) **node {
+func (t *avl) getLinkToRemovableNode(path []*node) **node {
 	i := len(path) - 1
 
 	if len(path) == 1 {
@@ -197,7 +201,7 @@ func (t *AVL) getLinkToRemovableNode(path []*node) **node {
 	return &path[i-1].right
 }
 
-func (t *AVL) doDeleteNode(n *node, linkToNode **node) {
+func (t *avl) doDeleteNode(n *node, linkToNode **node) {
 	if n.left != nil {
 		*linkToNode = n.left
 	} else if n.right != nil {
@@ -207,8 +211,8 @@ func (t *AVL) doDeleteNode(n *node, linkToNode **node) {
 	}
 }
 
-func (t *AVL) findNode(pl bst.Payload) (**node, []*node) {
-	h := int(math.Floor(math.Log2(float64(t.nodeCount+1)))) + 2
+func (t *avl) findNode(pl bst.Payload) (**node, []*node) {
+	h := int(math.Floor(math.Log2(float64(t.cnt+1)))) + 2
 	path := make([]*node, 0, h)
 
 	n := &t.root
@@ -230,7 +234,7 @@ func (t *AVL) findNode(pl bst.Payload) (**node, []*node) {
 	return n, path
 }
 
-func (t *AVL) fixLeftHeavy(x *node, y *node, z *node, xParent *node) *node {
+func (t *avl) fixLeftHeavy(x *node, y *node, z *node, xParent *node) *node {
 	// left left
 	if y.left == z {
 		t.rotateRight(x, xParent)
@@ -259,7 +263,7 @@ func (t *AVL) fixLeftHeavy(x *node, y *node, z *node, xParent *node) *node {
 	return x
 }
 
-func (t *AVL) fixRightHeavy(x *node, y *node, z *node, xParent *node) *node {
+func (t *avl) fixRightHeavy(x *node, y *node, z *node, xParent *node) *node {
 	// Right right
 	if y.right == z {
 		t.rotateLeft(x, xParent)
@@ -288,7 +292,7 @@ func (t *AVL) fixRightHeavy(x *node, y *node, z *node, xParent *node) *node {
 	return x
 }
 
-func (t *AVL) rotateRight(x *node, xParent *node) {
+func (t *avl) rotateRight(x *node, xParent *node) {
 	xLeftNode := x.left
 
 	x.left = xLeftNode.right
@@ -307,7 +311,7 @@ func (t *AVL) rotateRight(x *node, xParent *node) {
 	}
 }
 
-func (t *AVL) rotateLeft(x *node, xParent *node) {
+func (t *avl) rotateLeft(x *node, xParent *node) {
 	xRightNode := x.right
 
 	x.right = xRightNode.left
@@ -326,7 +330,7 @@ func (t *AVL) rotateLeft(x *node, xParent *node) {
 	}
 }
 
-func (t *AVL) newNode(pl bst.Payload) *node {
+func (t *avl) newNode(pl bst.Payload) *node {
 	return &node{
 		pl,
 		nil,

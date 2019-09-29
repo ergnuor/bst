@@ -11,11 +11,11 @@ type node struct {
 	bf      int8
 }
 
-func (n *node) GetPayload() bst.Payload {
+func (n *node) Payload() bst.Payload {
 	return n.payload
 }
 
-func (n *node) GetLeftChild() bst.Node {
+func (n *node) Left() bst.Node {
 	if n.left == nil {
 		return nil
 	}
@@ -23,7 +23,7 @@ func (n *node) GetLeftChild() bst.Node {
 	return n.left
 }
 
-func (n *node) GetRightChild() bst.Node {
+func (n *node) Right() bst.Node {
 	if n.right == nil {
 		return nil
 	}
