@@ -66,6 +66,14 @@ func (t *avl) Search(payload bst.Payload) bst.Payload {
 	return nil
 }
 
+func (t *avl) Count() int {
+	return t.cnt
+}
+
+func (t *avl) MaxHeight() int {
+	return int(math.Ceil(math.Log2(float64(t.cnt + 1))))
+}
+
 func New() bst.Tree {
 	return &avl{}
 }
@@ -212,7 +220,7 @@ func (t *avl) doDeleteNode(n *node, linkToNode **node) {
 }
 
 func (t *avl) findNode(pl bst.Payload) (**node, []*node) {
-	h := int(math.Floor(math.Log2(float64(t.cnt+1)))) + 2
+	h := t.MaxHeight() + 1
 	path := make([]*node, 0, h)
 
 	n := &t.root

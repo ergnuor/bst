@@ -5,4 +5,6 @@ type Tree interface {
 	Insert(...Payload)
 	Delete(...Payload)
 	Search(Payload) Payload
+	Count() int
+	MaxHeight() int
 }
