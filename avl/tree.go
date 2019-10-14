@@ -6,12 +6,12 @@ import (
 	"github.com/ergnuor/bst"
 )
 
-type avl struct {
+type tree struct {
 	root *node
 	cnt  int
 }
 
-func (t *avl) Root() bst.Node {
+func (t *tree) Root() bst.Node {
 	if t.root == nil {
 		return nil
 	}
@@ -19,36 +19,35 @@ func (t *avl) Root() bst.Node {
 	return t.root
 }
 
-func (t *avl) Insert(pls ...bst.Payload) {
+func (t *tree) Insert(pls ...bst.Payload) {
 	for _, pl := range pls {
 		n, path := t.findNode(pl)
 		if *n != nil {
 			continue
 		}
 
-		var xParent *node
 		*n = t.newNode(pl)
 		path = append(path, *n)
-
-		t.balanceInsertion(path, xParent)
+		t.fixInsertion(path)
 
 		t.cnt++
 	}
 }
 
-func (t *avl) Delete(pls ...bst.Payload) {
+func (t *tree) Delete(pls ...bst.Payload) {
 	for _, pl := range pls {
 		n, path := t.findNode(pl)
 		if *n == nil {
 			continue
 		}
 
-		n, path = t.pickInOrderSuccessor(n, path)
+		path = t.pickInOrderSuccessor(path)
+		(*n).payload = path[len(path)-1].payload
 
 		target := path[len(path)-1]
 		linkToTarget := t.getLinkToRemovableNode(path)
 
-		t.balanceDeletion(path)
+		t.fixDeletion(path)
 
 		t.doDeleteNode(target, linkToTarget)
 
@@ -56,7 +55,7 @@ func (t *avl) Delete(pls ...bst.Payload) {
 	}
 }
 
-func (t *avl) Search(payload bst.Payload) bst.Payload {
+func (t *tree) Search(payload bst.Payload) bst.Payload {
 	n, _ := t.findNode(payload)
 
 	if *n != nil {
@@ -66,23 +65,25 @@ func (t *avl) Search(payload bst.Payload) bst.Payload {
 	return nil
 }
 
-func (t *avl) Count() int {
+func (t *tree) Count() int {
 	return t.cnt
 }
 
-func (t *avl) MaxHeight() int {
+func (t *tree) MaxHeight() int {
 	return int(math.Ceil(math.Log2(float64(t.cnt + 1))))
 }
 
 func New() bst.Tree {
-	return &avl{}
+	return &tree{}
 }
 
-func (t *avl) balanceInsertion(path []*node, xParent *node) {
+func (t *tree) fixInsertion(path []*node) {
+	var pivotParent *node
+
 	for i := len(path) - 2; i >= 0; i-- {
-		xParent = nil
+		pivotParent = nil
 		if i != 0 {
-			xParent = path[i-1]
+			pivotParent = path[i-1]
 		}
 
 		if path[i].left == path[i+1] {
@@ -97,7 +98,7 @@ func (t *avl) balanceInsertion(path []*node, xParent *node) {
 			}
 
 			if path[i].bf == -1 {
-				t.fixLeftHeavy(path[i], path[i+1], path[i+2], xParent)
+				t.fixLeftHeavy(path[i], path[i+1], path[i+2], pivotParent)
 				break
 			}
 		} else {
@@ -112,21 +113,21 @@ func (t *avl) balanceInsertion(path []*node, xParent *node) {
 			}
 
 			if path[i].bf == 1 {
-				t.fixRightHeavy(path[i], path[i+1], path[i+2], xParent)
+				t.fixRightHeavy(path[i], path[i+1], path[i+2], pivotParent)
 				break
 			}
 		}
 	}
 }
 
-func (t *avl) balanceDeletion(path []*node) {
-	var x, y, z, xParent *node
+func (t *tree) fixDeletion(path []*node) {
+	var pivotParent *node
 
 	for i := len(path) - 2; i >= 0; i-- {
-		x, y, z, xParent = nil, nil, nil, nil
+		pivotParent = nil
 
 		if i != 0 {
-			xParent = path[i-1]
+			pivotParent = path[i-1]
 		}
 
 		if path[i].left == path[i+1] {
@@ -141,8 +142,7 @@ func (t *avl) balanceDeletion(path []*node) {
 			}
 
 			if path[i].bf == 1 {
-				x = path[i]
-				y = path[i].right
+				path[i] = t.fixRightHeavy(path[i], path[i].right, t.pickZ(path[i].right), pivotParent)
 			}
 		} else {
 			if path[i].bf == 0 {
@@ -156,70 +156,62 @@ func (t *avl) balanceDeletion(path []*node) {
 			}
 
 			if path[i].bf == -1 {
-				x = path[i]
-				y = path[i].left
-			}
-		}
-
-		if x != nil && y != nil {
-			if y.bf == 1 {
-				z = y.right
-			} else {
-				z = y.left
-			}
-
-			if x.right == y {
-				path[i] = t.fixRightHeavy(x, y, z, xParent)
-			} else {
-				path[i] = t.fixLeftHeavy(x, y, z, xParent)
+				path[i] = t.fixLeftHeavy(path[i], path[i].left, t.pickZ(path[i].left), pivotParent)
 			}
 		}
 	}
 }
 
-func (t *avl) pickInOrderSuccessor(n **node, path []*node) (**node, []*node) {
-	if (*n).left == nil || (*n).right == nil {
-		return n, path
+func (*tree) pickZ(n *node) *node {
+	if n.bf == 1 {
+		return n.right
 	}
-	noteToSwapPayloadWith := *n
-
-	n = &(*n).right
-	path = append(path, *n)
-
-	for (*n).left != nil {
-		n = &(*n).left
-		path = append(path, *n)
-	}
-
-	noteToSwapPayloadWith.payload = (*n).payload
-	return n, path
+	return n.left
 }
 
-func (t *avl) getLinkToRemovableNode(path []*node) **node {
+func (t *tree) pickInOrderSuccessor(path []*node) []*node {
 	i := len(path) - 1
 
-	if len(path) == 1 {
+	if path[i].right == nil {
+		return path
+	}
+
+	path = append(path, path[i].right)
+	i++
+
+	for path[i].left != nil {
+		path = append(path, path[i].left)
+		i++
+	}
+
+	return path
+}
+
+func (t *tree) getLinkToRemovableNode(path []*node) **node {
+	l := len(path) - 1
+
+	if l == 0 {
 		return &t.root
 	}
 
-	if path[i-1].left == path[i] {
-		return &path[i-1].left
+	if path[l-1].left == path[l] {
+		return &path[l-1].left
 	}
 
-	return &path[i-1].right
+	return &path[l-1].right
 }
 
-func (t *avl) doDeleteNode(n *node, linkToNode **node) {
-	if n.left != nil {
-		*linkToNode = n.left
-	} else if n.right != nil {
-		*linkToNode = n.right
+func (t *tree) doDeleteNode(target *node, linkToTarget **node) {
+	if target.left != nil {
+		*linkToTarget = target.left
+	} else if target.right != nil {
+		*linkToTarget = target.right
 	} else {
-		*linkToNode = nil
+		*linkToTarget = nil
 	}
 }
 
-func (t *avl) findNode(pl bst.Payload) (**node, []*node) {
+func (t *tree) findNode(pl bst.Payload) (**node, []*node) {
 	h := t.MaxHeight() + 1
 	path := make([]*node, 0, h)
 
@@ -242,10 +234,10 @@ func (t *avl) findNode(pl bst.Payload) (**node, []*node) {
 	return n, path
 }
 
-func (t *avl) fixLeftHeavy(x *node, y *node, z *node, xParent *node) *node {
+func (t *tree) fixLeftHeavy(x *node, y *node, z *node, pivotParent *node) *node {
 	// left left
 	if y.left == z {
-		t.rotateRight(x, xParent)
+		t.rotateRight(x, pivotParent)
 		x.bf = 0
 		y.bf = 0
 
@@ -254,7 +246,7 @@ func (t *avl) fixLeftHeavy(x *node, y *node, z *node, xParent *node) *node {
 
 	// left right
 	t.rotateLeft(y, x)
-	t.rotateRight(x, xParent)
+	t.rotateRight(x, pivotParent)
 
 	y.bf = 0
 	if z.bf == -1 {
@@ -271,10 +263,10 @@ func (t *avl) fixLeftHeavy(x *node, y *node, z *node, xParent *node) *node {
 	return x
 }
 
-func (t *avl) fixRightHeavy(x *node, y *node, z *node, xParent *node) *node {
+func (t *tree) fixRightHeavy(x *node, y *node, z *node, pivotParent *node) *node {
 	// Right right
 	if y.right == z {
-		t.rotateLeft(x, xParent)
+		t.rotateLeft(x, pivotParent)
 		x.bf = 0
 		y.bf = 0
 
@@ -283,7 +275,7 @@ func (t *avl) fixRightHeavy(x *node, y *node, z *node, xParent *node) *node {
 
 	// Right left
 	t.rotateRight(y, x)
-	t.rotateLeft(x, xParent)
+	t.rotateLeft(x, pivotParent)
 
 	y.bf = 0
 	if z.bf == -1 {
@@ -300,17 +292,17 @@ func (t *avl) fixRightHeavy(x *node, y *node, z *node, xParent *node) *node {
 	return x
 }
 
-func (t *avl) rotateRight(x *node, xParent *node) {
+func (t *tree) rotateRight(x *node, pivotParent *node) {
 	xLeftNode := x.left
 
 	x.left = xLeftNode.right
 	xLeftNode.right = x
 
-	if xParent != nil {
-		if xParent.right == x {
-			xParent.right = xLeftNode
+	if pivotParent != nil {
+		if pivotParent.right == x {
+			pivotParent.right = xLeftNode
 		} else {
-			xParent.left = xLeftNode
+			pivotParent.left = xLeftNode
 		}
 	}
 
@@ -319,17 +311,17 @@ func (t *avl) rotateRight(x *node, xParent *node) {
 	}
 }
 
-func (t *avl) rotateLeft(x *node, xParent *node) {
+func (t *tree) rotateLeft(x *node, pivotParent *node) {
 	xRightNode := x.right
 
 	x.right = xRightNode.left
 	xRightNode.left = x
 
-	if xParent != nil {
-		if xParent.right == x {
-			xParent.right = xRightNode
+	if pivotParent != nil {
+		if pivotParent.right == x {
+			pivotParent.right = xRightNode
 		} else {
-			xParent.left = xRightNode
+			pivotParent.left = xRightNode
 		}
 	}
 
@@ -338,7 +330,7 @@ func (t *avl) rotateLeft(x *node, xParent *node) {
 	}
 }
 
-func (t *avl) newNode(pl bst.Payload) *node {
+func (t *tree) newNode(pl bst.Payload) *node {
 	return &node{
 		pl,
 		nil,
