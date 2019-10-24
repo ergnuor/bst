@@ -78,14 +78,7 @@ func New() bst.Tree {
 }
 
 func (t *tree) fixInsertion(path []*node) {
-	var pivotParent *node
-
 	for i := len(path) - 2; i >= 0; i-- {
-		pivotParent = nil
-		if i != 0 {
-			pivotParent = path[i-1]
-		}
-
 		if path[i].left == path[i+1] {
 			if path[i].bf == 1 {
 				path[i].bf = 0
@@ -98,7 +91,7 @@ func (t *tree) fixInsertion(path []*node) {
 			}
 
 			if path[i].bf == -1 {
-				t.fixLeftHeavy(path[i], path[i+1], path[i+2], pivotParent)
+				t.fixLeftHeavyInsertion(path[i], t.pickParent(path, i))
 				break
 			}
 		} else {
@@ -113,7 +106,7 @@ func (t *tree) fixInsertion(path []*node) {
 			}
 
 			if path[i].bf == 1 {
-				t.fixRightHeavy(path[i], path[i+1], path[i+2], pivotParent)
+				t.fixRightHeavyInsertion(path[i], t.pickParent(path, i))
 				break
 			}
 		}
@@ -121,15 +114,7 @@ func (t *tree) fixInsertion(path []*node) {
 }
 
 func (t *tree) fixDeletion(path []*node) {
-	var pivotParent *node
-
 	for i := len(path) - 2; i >= 0; i-- {
-		pivotParent = nil
-
-		if i != 0 {
-			pivotParent = path[i-1]
-		}
-
 		if path[i].left == path[i+1] {
 			if path[i].bf == 0 {
 				path[i].bf = 1
@@ -142,7 +127,11 @@ func (t *tree) fixDeletion(path []*node) {
 			}
 
 			if path[i].bf == 1 {
-				path[i] = t.fixRightHeavy(path[i], path[i].right, t.pickZ(path[i].right), pivotParent)
+				path[i] = t.fixRightHeavyDeletion(path[i], t.pickParent(path, i))
+
+				if path[i].bf == -1 {
+					break
+				}
 			}
 		} else {
 			if path[i].bf == 0 {
@@ -156,17 +145,22 @@ func (t *tree) fixDeletion(path []*node) {
 			}
 
 			if path[i].bf == -1 {
-				path[i] = t.fixLeftHeavy(path[i], path[i].left, t.pickZ(path[i].left), pivotParent)
+				path[i] = t.fixLeftHeavyDeletion(path[i], t.pickParent(path, i))
+
+				if path[i].bf == 1 {
+					break
+				}
 			}
 		}
 	}
 }
 
-func (*tree) pickZ(n *node) *node {
-	if n.bf == 1 {
-		return n.right
+func (*tree) pickParent(path []*node, i int) *node {
+	if i != 0 {
+		return path[i-1]
 	}
-	return n.left
+
+	return nil
 }
 
 func (t *tree) pickInOrderSuccessor(path []*node) []*node {
@@ -234,75 +228,133 @@ func (t *tree) findNode(pl bst.Payload) (**node, []*node) {
 	return n, path
 }
 
-func (t *tree) fixLeftHeavy(x *node, y *node, z *node, pivotParent *node) *node {
+func (t *tree) fixLeftHeavyInsertion(x *node, xParent *node) {
+	y := x.left
+
 	// left left
-	if y.left == z {
-		t.rotateRight(x, pivotParent)
+	if y.bf == -1 {
+		t.rotateRight(x, xParent)
 		x.bf = 0
 		y.bf = 0
 
-		return y
+		return
 	}
+
+	z := y.right
 
 	// left right
 	t.rotateLeft(y, x)
-	t.rotateRight(x, pivotParent)
+	t.rotateRight(x, xParent)
 
-	y.bf = 0
-	if z.bf == -1 {
-		x.bf = 1
-		z.bf = 0
-	} else if z.bf == 1 {
-		x.bf = 0
-		z.bf = -1
-	} else {
-		x.bf = 0
-		z.bf = 0
-	}
-
-	return x
+	t.fixZigZagBalanceFactor(z)
 }
 
-func (t *tree) fixRightHeavy(x *node, y *node, z *node, pivotParent *node) *node {
+func (t *tree) fixRightHeavyInsertion(x *node, xParent *node) {
+	y := x.right
+
 	// Right right
-	if y.right == z {
-		t.rotateLeft(x, pivotParent)
+	if y.bf == 1 {
+		t.rotateLeft(x, xParent)
+		x.bf = 0
+		y.bf = 0
+
+		return
+	}
+
+	z := y.left
+
+	// Right left
+	t.rotateRight(y, x)
+	t.rotateLeft(x, xParent)
+
+	t.fixZigZagBalanceFactor(z)
+}
+
+func (t *tree) fixLeftHeavyDeletion(x *node, xParent *node) *node {
+	y := x.left
+
+	if y.bf == -1 {
+		t.rotateRight(x, xParent)
 		x.bf = 0
 		y.bf = 0
 
 		return y
 	}
 
-	// Right left
-	t.rotateRight(y, x)
-	t.rotateLeft(x, pivotParent)
+	if y.bf == 0 {
+		t.rotateRight(x, xParent)
+		y.bf = 1
+		x.bf = -1
 
-	y.bf = 0
-	if z.bf == -1 {
-		x.bf = 1
-		z.bf = 0
-	} else if z.bf == 1 {
-		x.bf = 0
-		z.bf = -1
-	} else {
-		x.bf = 0
-		z.bf = 0
+		return y
 	}
 
-	return x
+	z := y.right
+
+	// left right
+	t.rotateLeft(y, x)
+	t.rotateRight(x, xParent)
+
+	t.fixZigZagBalanceFactor(z)
+
+	return z
 }
 
-func (t *tree) rotateRight(x *node, pivotParent *node) {
+func (t *tree) fixRightHeavyDeletion(x *node, xParent *node) *node {
+	y := x.right
+
+	if y.bf == 1 {
+		t.rotateLeft(x, xParent)
+		x.bf = 0
+		y.bf = 0
+
+		return y
+	}
+
+	if y.bf == 0 {
+		t.rotateLeft(x, xParent)
+		y.bf = -1
+		x.bf = 1
+
+		return y
+	}
+
+	z := y.left
+
+	// Right left
+	t.rotateRight(y, x)
+	t.rotateLeft(x, xParent)
+
+	t.fixZigZagBalanceFactor(z)
+
+	return z
+}
+
+func (*tree) fixZigZagBalanceFactor(p *node) {
+	if p.bf == -1 {
+		p.left.bf = 0
+		p.right.bf = 1
+	} else if p.bf == 1 {
+		p.left.bf = -1
+		p.right.bf = 0
+	} else {
+		p.left.bf = 0
+		p.right.bf = 0
+	}
+	p.bf = 0
+}
+
+func (t *tree) rotateRight(x *node, xParent *node) {
 	xLeftNode := x.left
 
 	x.left = xLeftNode.right
 	xLeftNode.right = x
 
-	if pivotParent != nil {
-		if pivotParent.right == x {
-			pivotParent.right = xLeftNode
+	if xParent != nil {
+		if xParent.right == x {
+			xParent.right = xLeftNode
 		} else {
-			pivotParent.left = xLeftNode
+			xParent.left = xLeftNode
 		}
 	}
 
@@ -311,17 +363,17 @@ func (t *tree) rotateRight(x *node, pivotParent *node) {
 	}
 }
 
-func (t *tree) rotateLeft(x *node, pivotParent *node) {
+func (t *tree) rotateLeft(x *node, xParent *node) {
 	xRightNode := x.right
 
 	x.right = xRightNode.left
 	xRightNode.left = x
 
-	if pivotParent != nil {
-		if pivotParent.right == x {
-			pivotParent.right = xRightNode
+	if xParent != nil {
+		if xParent.right == x {
+			xParent.right = xRightNode
 		} else {
-			pivotParent.left = xRightNode
+			xParent.left = xRightNode
 		}
 	}
 
